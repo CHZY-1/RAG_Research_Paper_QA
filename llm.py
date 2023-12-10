@@ -36,9 +36,16 @@ def main():
 
     # LLM
     if model_type == "LlamaCpp":
-        llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+        llm = LlamaCpp(model_path=model_path, 
+                       max_tokens=512, 
+                       n_batch=model_n_batch, 
+                       callbacks=callbacks, 
+                       n_ctx=2048, 
+                       f16_kv=True,
+                       n_threads = 4,
+                       verbose=True)
     elif model_type == "GPT4All":
-        llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+        llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=True)
     else:
         # raise exception if model_type is not supported
         raise Exception(f"Model type {model_type} is not supported. Please choose one of the following: LlamaCpp, GPT4All")
