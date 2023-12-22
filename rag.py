@@ -28,7 +28,8 @@ def load_llm():
                     model_type='llama',
                     callback_manager=callback_manager,
                     config={
-                        'gpu_layers' : 30,
+                        'gpu_layers' : 20,
+                        'stream':True,
                         'max_new_tokens': 512,
                         'temperature': 0.1,
                         'repetition_penalty': 1.18,
@@ -87,8 +88,7 @@ def write_data_to_csv(data: dict, csv_file_name: str):
         writer.writerow(data)
 
 
-def rag_chain(query, top_k = 3):
-
+def get_rag_chain(top_k = 3):
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
     vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
@@ -107,6 +107,13 @@ def rag_chain(query, top_k = 3):
         "verbose": False,
         "prompt": prompt
         })
+    
+    return qa_chain, llm
+
+
+def rag_chain(query, top_k=3):
+
+    qa_chain, llm = get_rag_chain(top_k=top_k)
     
     if query:
         start = time.time()
