@@ -2,81 +2,78 @@ import panel as pn
 from langchain.chains import LLMChain
 from langchain.llms import CTransformers
 from langchain.prompts import PromptTemplate
-from rag import get_rag_chain
+from rag import get_rag_chain, get_rag_chain_async
 
 pn.extension()
 
-MODEL_KWARGS = {
-    "llama": {
-        "model": "TheBloke/Llama-2-7b-Chat-GGUF",
-        "model_file": "llama-2-7b-chat.Q5_K_M.gguf",
-    },
-    "mistral": {
-        "model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
-        "model_file": "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-    },
-}
-
 # We cache the chains and responses to speed up things
-llm_chains = pn.state.cache["llm_chains"] = pn.state.cache.get("llm_chains", {})
-responses = pn.state.cache["responses"] = pn.state.cache.get("responses", {})
-
-TEMPLATE = """<s>[INST] You are a friendly chat bot who's willing to help answer the
-user:
-{user_input} [/INST] </s>
-"""
-
-CONFIG = {"max_new_tokens": 256, "temperature": 0.5}
-
-
-# def _get_llm_chain(model, template=TEMPLATE, config=CONFIG):
-    # llm = CTransformers(**MODEL_KWARGS[model], config=config, streaming=True)
-    # prompt = PromptTemplate(template=template, input_variables=["user_input"])
-    # llm_chain = LLMChain(prompt=prompt, llm=llm)
-    # return llm_chain
+# llm_chains = pn.state.cache["llm_chains"] = pn.state.cache.get("llm_chains", {})
+# responses = pn.state.cache["responses"] = pn.state.cache.get("responses", {})
 
 def _get_llm_chain():
-
-    llm_chain, llm = get_rag_chain()
+    llm_chain = get_rag_chain_async()
 
     return llm_chain
 
+async def _get_response(contents: str, llm_chain):
+    response = llm_chain({"query": contents})
 
-# Cannot use pn.cache due to https://github.com/holoviz/panel/issues/4236
-async def _get_response(contents: str, model: str) -> str:
-    key = (contents, model)
-    if key in responses:
-        return responses[key]
+    print(response)
+    chunks = []
 
-    llm_chain = llm_chains
-    response = responses[key] = await llm_chain(contents)
-    return response
+    for chunk in response["source_documents"][::-1]:
+        name = f"Chunk {chunk.metadata['page']}"
+        content = chunk.page_content
+        chunks.insert(0, (name, content))
+    return response, chunks
 
 
 async def callback(contents: str, user: str, instance: pn.chat.ChatInterface):
-    # for model in MODEL_KWARGS:
-    #     if model not in llm_chains:
-    #         instance.placeholder_text = (
-    #             f"Downloading {model}, this may take a few minutes, "
-    #             f"or longer, depending on your internet connection."
-    #         )
-    #         llm_chains[model] = _get_llm_chain(model)
+    try:
+        loading_spinner = pn.indicators.LoadingSpinner(value=True, size=70, name='Loading...')
+        instance.append(loading_spinner)
 
-    chain, model = get_rag_chain()
+        llm_chain = await _get_llm_chain()
 
-    llm_chains[model] = _get_llm_chain()
+        message = None
+        # response = await _get_response(contents, llm_chain)
 
-    message = None
-    response = await _get_response(contents, model)
-    for chunk in response:
-        message = instance.stream(chunk, user=model.title(), message=message)
+        response, documents = await _get_response(contents, llm_chain)
+
+        instance.remove(loading_spinner)
+
+        column = pn.Column(sizing_mode="stretch_width")
+
+        pages_layout = pn.Accordion(*documents, sizing_mode="stretch_width", max_width=1000)
+        column.append(pages_layout)
+
+        # for chunk in response['result']:
+        #     panel = pn.panel(chunk, width_policy="max", sizing_mode="stretch_width")
+        #     column.append(panel)
+
+        # instance.send({"user": "Model", "object": column}, respond=False)
+
+        yield {"user": "LangChain(Retriever)", "object": column}
+
+
+        for chunk in response["result"]:
+            message = instance.stream(chunk, user="Assistant", message=message)
+
+    except Exception as e:
+        instance.send({"user": "System", "object": f"Error: {e}. Please try again."}, respond=False)
 
 
 
-chat_interface = pn.chat.ChatInterface(callback=callback, placeholder_threshold=0.1)
+chat_interface = pn.chat.ChatInterface(
+    callback=callback,
+    placeholder_threshold=0.1,
+    sizing_mode="stretch_width")
+
 chat_interface.send(
-    "Send a message to get a reply from both Llama 2 and Mistral (7B)!",
+    "Send a message to get a reply from Research paper QA Chatbot",
     user="System",
     respond=False,
 )
 chat_interface.servable()
+
+# panel serve ui.py

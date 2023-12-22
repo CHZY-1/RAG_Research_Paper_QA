@@ -20,21 +20,55 @@ from constants import CHROMA_SETTINGS
 EMBEDDINGS_MODEL_NAME = os.environ.get("EMBEDDINGS_MODEL_NAME")
 PERSISTS_DIRECTORY = os.environ.get('PERSIST_DIRECTORY')
 
-def load_llm():
+# def load_llm():
 
+#     callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+
+#     llm = CTransformers(model='../models/llama-2-7b-chat.ggmlv3.q3_K_L.bin',
+#                     model_type='llama',
+#                     callback_manager=callback_manager,
+#                     config={
+#                         'gpu_layers' : 20,
+#                         'stream':True,
+#                         'max_new_tokens': 512,
+#                         'temperature': 0.1,
+#                         'repetition_penalty': 1.18,
+#                         'context_length' : 2048})
+#     return llm
+
+MODEL_KWARGS = {
+    'llama': {
+        # "model": "TheBloke/Llama-2-7b-Chat-GGUF",
+        # "model_file": "llama-2-7b-chat.Q5_K_M.gguf",
+        "model": '../models/llama-2-7b-chat.ggmlv3.q3_K_L.bin'
+    },
+    'mistral': {
+        "model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
+        "model_file": "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+    },
+}
+
+CONFIG = {'gpu_layers' : 20,
+          'stream':True,
+          'max_new_tokens': 512,
+          'temperature': 0.1,
+          'repetition_penalty': 1.18,
+          'context_length' : 2048}
+
+
+def load_llm(model='llama', config=CONFIG):
     callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
-    llm = CTransformers(model='../models/llama-2-7b-chat.ggmlv3.q3_K_L.bin',
-                    model_type='llama',
-                    callback_manager=callback_manager,
-                    config={
-                        'gpu_layers' : 20,
-                        'stream':True,
-                        'max_new_tokens': 512,
-                        'temperature': 0.1,
-                        'repetition_penalty': 1.18,
-                        'context_length' : 2048})
-    return llm
+    if model in MODEL_KWARGS:
+        llm = CTransformers(**MODEL_KWARGS[model], 
+                            model_type=model, 
+                            config=config, 
+                            callback_manager=callback_manager, 
+                            streaming=True)
+        return llm
+    else:
+        raise ValueError(f"Model '{model}' not found in MODEL_KWARGS")
+    
 
 def get_prompt_template(instruction, new_system_prompt):
     B_INST, E_INST = "[INST]", "[/INST]"
@@ -49,7 +83,7 @@ def set_qa_prompt():
     sys_prompt = """You are a helpful, respectful and honest assistant. Always answer as helpfully as possible using the context text provided. Your answers should only answer the question once and not have any text after the answer is done. If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information. """
     instruction = """CONTEXT:/n/n {context}/n 
     
-    Question: {question}"""
+    Question: {question}""".strip(" ")
 
     prompt_template = get_prompt_template(instruction, sys_prompt)
 
@@ -88,12 +122,12 @@ def write_data_to_csv(data: dict, csv_file_name: str):
         writer.writerow(data)
 
 
-def get_rag_chain(top_k = 3):
+def get_rag_chain(model='llama', top_k = 3):
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
     vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
 
-    llm = load_llm()
+    llm = load_llm(model)
 
     prompt = set_qa_prompt()
 
@@ -110,10 +144,35 @@ def get_rag_chain(top_k = 3):
     
     return qa_chain, llm
 
+import asyncio
+async def get_rag_chain_async(model='llama', top_k=3):
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
+    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
+    vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
 
-def rag_chain(query, top_k=3):
+    llm = load_llm(model)
 
-    qa_chain, llm = get_rag_chain(top_k=top_k)
+    prompt = set_qa_prompt()
+
+    loop = asyncio.get_event_loop()
+    qa_chain = await loop.run_in_executor(None, lambda: RetrievalQA.from_chain_type(
+        llm=llm, 
+        chain_type='stuff',
+        retriever=vector_db.as_retriever(search_kwargs={"k": top_k}),
+        return_source_documents=True,
+        verbose=True,
+        chain_type_kwargs={
+            "verbose": False,
+            "prompt": prompt
+        }
+    ))
+
+    return qa_chain
+
+
+def rag_chain(query, model='llama', top_k=3):
+
+    qa_chain, llm = get_rag_chain(model, top_k=top_k)
     
     if query:
         start = time.time()
@@ -151,18 +210,20 @@ def rag_chain(query, top_k=3):
 
 if __name__ == "__main__":
 
-    query_list = [
-        "What data DialoGPT trained on?", 
-        "What is the problems that DialoGPT paper trying to solve?", 
-        "What is DialoGPT?",
-        "How is the architecture of DialoGPT designed to handle conversational context?",
-        "Can you explain the key architectural components of DialoGPT mentioned in the paper?",
-        "What evaluation metrics were used in the paper to assess the performance of DialoGPT?",
-        "Can you discuss the results of the human evaluation mentioned in the paper?",
-        "How does DialoGPT compare with other conversation models in terms of performance, according to the paper?",
-        "What challenges or limitations does the paper acknowledge in the performance of DialoGPT?",
-        "Does the paper discuss any fine-tuning strategies or adaptation techniques for DialoGPT?"
-        ]
+    # query_list = [
+    #     "What data DialoGPT trained on?", 
+    #     "What is the problems that DialoGPT paper trying to solve?", 
+    #     "What is DialoGPT?",
+    #     "How is the architecture of DialoGPT designed to handle conversational context?",
+    #     "Can you explain the key architectural components of DialoGPT mentioned in the paper?",
+    #     "What evaluation metrics were used in the paper to assess the performance of DialoGPT?",
+    #     "Can you discuss the results of the human evaluation mentioned in the paper?",
+    #     "How does DialoGPT compare with other conversation models in terms of performance, according to the paper?",
+    #     "What challenges or limitations does the paper acknowledge in the performance of DialoGPT?",
+    #     "Does the paper discuss any fine-tuning strategies or adaptation techniques for DialoGPT?"
+    #     ]
 
-    for query in query_list:
-        rag_chain(query, top_k=3)
+    # for query in query_list:
+    #     rag_chain(query, top_k=3)
+
+    rag_chain("What is DialoGPT?", top_k=3)
