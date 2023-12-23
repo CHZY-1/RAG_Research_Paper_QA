@@ -1,12 +1,8 @@
 import panel as pn
-from langchain.chains import LLMChain
-from langchain.llms import CTransformers
-from langchain.prompts import PromptTemplate
-from rag import get_rag_chain, get_rag_chain_async
+from rag import get_rag_chain_async
 
 pn.extension()
 
-# We cache the chains and responses to speed up things
 # llm_chains = pn.state.cache["llm_chains"] = pn.state.cache.get("llm_chains", {})
 # responses = pn.state.cache["responses"] = pn.state.cache.get("responses", {})
 
