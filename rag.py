@@ -36,11 +36,13 @@ PERSISTS_DIRECTORY = os.environ.get('PERSIST_DIRECTORY')
 #                         'context_length' : 2048})
 #     return llm
 
+models_path = '../models/'
+
 MODEL_KWARGS = {
     'llama': {
         # "model": "TheBloke/Llama-2-7b-Chat-GGUF",
         # "model_file": "llama-2-7b-chat.Q5_K_M.gguf",
-        "model": '../models/llama-2-7b-chat.ggmlv3.q3_K_L.bin'
+        "model": models_path + 'llama-2-7b-chat.ggmlv3.q3_K_L.bin'
     },
     'mistral': {
         "model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
@@ -108,12 +110,13 @@ def extract_unique_file_sources(sources):
         return None
 
 
-def write_data_to_csv(data: dict, csv_file_name: str):
+def write_data_to_csv(data: dict, csv_file_name: str, fieldnames:list =None):
 
     file_exists = os.path.exists(csv_file_name)
 
-    with open(csv_file_name, 'a', newline='') as csv_file:
-        fieldnames = ['query', 'answer', 'sources', 'top-k', 'response_time(s)', 'response_length', 'llm', 'llm_type']
+    with open(csv_file_name, 'a', newline='', encoding='utf-8') as csv_file:
+        if fieldnames is None:
+            fieldnames = list(data.keys())
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
         if not file_exists:
@@ -122,10 +125,14 @@ def write_data_to_csv(data: dict, csv_file_name: str):
         writer.writerow(data)
 
 
-def get_rag_chain(model='llama', top_k = 3):
+def get_vector_store():
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
     vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
+    return vector_db
+
+def get_rag_chain(model='llama', top_k = 3):
+    vector_db = get_vector_store()
 
     llm = load_llm(model)
 
@@ -200,6 +207,8 @@ def rag_chain(query, model='llama', top_k=3):
             'llm': os.path.basename(llm.model),
             'llm_type': llm.model_type
         }
+
+        # fieldnames = ['query', 'answer', 'sources', 'top-k', 'response_time(s)', 'response_length', 'llm', 'llm_type']
 
         write_data_to_csv(data, csv_file_name="rag_research_paper.csv")
 

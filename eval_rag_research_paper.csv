@@ -1,0 +1,142 @@
+question,context,answer,response_time,evaluation_from_llm,critic_llm
+What data DialoGPT trained on?,"mately linearly w.r.t. the number of GPUs. We
+further employed a dynamic batching strategy to
+group conversations of similar lengths into the
+same batch, thus increasing training throughput.
+4.2 DSTC-7 Dialogue Generation Challenge
+The DSTC (Dialog System Technology Chal-
+lenges) 7 track (Galley et al., 2019) is an end-to-
+end conversational modeling task,4in which the
+goal is to generate conversation responses that go
+beyond chitchat by injecting information that is
+grounded in external knowledge. This task is dis-
+tinct from what is commonly thought of as goal-
+oriented, task-oriented, or task-completion dialogs
+in that there is no speciﬁc or predeﬁned goal (e.g.,
+booking a ﬂight, or reserving a table at a restau-
+rant). Instead, it targets human-like interactionsDIALO GPT : Large-Scale Generative Pre-training
+for Conversational Response Generation
+Yizhe Zhang Siqi Sun Michel Galley Yen-Chun Chen
+Chris Brockett Xiang Gao Jianfeng Gao Jingjing Liu Bill Dolan
+Microsoft Corporation, Redmond, WA, USA∗
+{yizzhang,siqi.sun,mgalley,yenchen,chrisbkt,xiag,jfgao,jingjl,billdol }@microsoft.com
+Abstract
+We present a large, tunable neural conversa-
+tional response generation model, D IALO GPT
+(dialogue generative pre-trained transformer).
+Trained on 147M conversation-like exchanges
+extracted from Reddit comment chains over
+a period spanning from 2005 through 2017,
+DialoGPT extends the Hugging Face PyTorch
+transformer to attain a performance close to
+human both in terms of automatic and human
+evaluation in single-turn dialogue settings. WeDialoGPT (345M, w/ MMI) 2978 ( 50)% 241 (4%) 2781 (46%) Human response *
+Table 7: Results of Human Evaluation for relevance, informativeness and human-response possibility, showing
+preferences (%) for our model (DialoGPT) vis-a-vis its variants and real human responses. Distributions skew
+towards DialoGPT with MMI, even when compared with human outputs. Numbers in bold indicate the preferred
+systems. Statistically signiﬁcant results are indicated: * p ≤0.01, ** p≤0.001, *** p≤0.0001, **** p≤
+0.00001.
+reverse, disagreeing with otherwise ethical state-
+ments). These are known issues in current state-
+of-the-art end-to-end conversation models trained
+on large naturally-occurring datasets. A major
+motive for releasing D IALO GPT is to enable re-","  According to the text, DialoGPT was trained on 147 million conversation-like exchanges extracted from Reddit comment chains over a period spanning from 2005 through 2017.",48.35651683807373,"
+The predicted answer is correct and provides accurate information about the data that DialoGPT was trained on. The grading scale would be:
+
+4 - Excellent: The answer is complete, accurate, and well-explained. It demonstrates a thorough understanding of the topic.
+
+3 - Good: The answer is mostly correct and provides some explanation, but may be missing some details or have a few minor errors.
+
+2 - Fair: The answer contains some errors or omissions, but still conveys the main idea. It shows some effort but could benefit from more detail or accuracy.
+
+1 - Poor: The answer is incorrect or incomplete and does not demonstrate an understanding of the topic. It may contain significant errors or omissions that make it difficult to understand.",mistral-7b-instruct-v0.1.Q4_K_M.gguf
+What is the problems that DialoGPT paper trying to solve?,"DialoGPT (345M, w/ MMI) 2978 ( 50)% 241 (4%) 2781 (46%) Human response *
+Table 7: Results of Human Evaluation for relevance, informativeness and human-response possibility, showing
+preferences (%) for our model (DialoGPT) vis-a-vis its variants and real human responses. Distributions skew
+towards DialoGPT with MMI, even when compared with human outputs. Numbers in bold indicate the preferred
+systems. Statistically signiﬁcant results are indicated: * p ≤0.01, ** p≤0.001, *** p≤0.0001, **** p≤
+0.00001.
+reverse, disagreeing with otherwise ethical state-
+ments). These are known issues in current state-
+of-the-art end-to-end conversation models trained
+on large naturally-occurring datasets. A major
+motive for releasing D IALO GPT is to enable re-mately linearly w.r.t. the number of GPUs. We
+further employed a dynamic batching strategy to
+group conversations of similar lengths into the
+same batch, thus increasing training throughput.
+4.2 DSTC-7 Dialogue Generation Challenge
+The DSTC (Dialog System Technology Chal-
+lenges) 7 track (Galley et al., 2019) is an end-to-
+end conversational modeling task,4in which the
+goal is to generate conversation responses that go
+beyond chitchat by injecting information that is
+grounded in external knowledge. This task is dis-
+tinct from what is commonly thought of as goal-
+oriented, task-oriented, or task-completion dialogs
+in that there is no speciﬁc or predeﬁned goal (e.g.,
+booking a ﬂight, or reserving a table at a restau-
+rant). Instead, it targets human-like interactionsModelling conversations, however, presents dis-
+tinct challenges in that human dialogue, which en-
+capsulates the possibly competing goals of two
+participants, is intrinsically more diverse in the
+range of potential responses (Li et al., 2016a;
+Zhang et al., 2018; Gao et al., 2019a,b). It thus
+poses a greater one-to-many problem than is typ-
+ical in other text generation tasks such as neural
+machine translation, text summarization and para-
+phrasing. Human conversations are also generally
+more informal, noisy, and, when in the form of
+textual chat, often contain informal abbreviations
+or syntactic/lexical errors.
+Most open-domain neural response generation
+systems suffer from content or style inconsis-
+tency (Li et al., 2016b; Zhang et al., 2019; Gao","  According to the text, the main problem that the DialoGPT paper is trying to solve is the issue of inconsistent content and style in open-domain neural response generation systems. These systems are trained on large naturally-occurring datasets, but they often produce responses that lack coherence or sound unnatural, especially when compared to human conversations. The authors of the DialoGPT paper aim to address this problem by proposing a new end-to-end conversation model that can generate more informative and human-like responses in various dialogue scenarios.",49.55743765830994,"
+Feedback: The predicted answer accurately identifies the main problem that the DialoGPT paper is trying to solve, which is the issue of inconsistent content and style in open-domain neural response generation systems. However, the answer could be improved by providing more specific details about the problems with these systems and how DialoGPT addresses them. Additionally, the answer could benefit from a more thorough analysis of the context provided in the question, such as the mention of the DSTC-7 Dialogue Generation Challenge and the challenges posed by human dialogue.
+
+Grade: 3 out of 5. The predicted answer accurately identifies the main problem, but it could be improved with more specific details and a more thorough analysis of the context.",mistral-7b-instruct-v0.1.Q4_K_M.gguf
+What is DialoGPT?,"mately linearly w.r.t. the number of GPUs. We
+further employed a dynamic batching strategy to
+group conversations of similar lengths into the
+same batch, thus increasing training throughput.
+4.2 DSTC-7 Dialogue Generation Challenge
+The DSTC (Dialog System Technology Chal-
+lenges) 7 track (Galley et al., 2019) is an end-to-
+end conversational modeling task,4in which the
+goal is to generate conversation responses that go
+beyond chitchat by injecting information that is
+grounded in external knowledge. This task is dis-
+tinct from what is commonly thought of as goal-
+oriented, task-oriented, or task-completion dialogs
+in that there is no speciﬁc or predeﬁned goal (e.g.,
+booking a ﬂight, or reserving a table at a restau-
+rant). Instead, it targets human-like interactionsDialoGPT (345M, w/ MMI) 2978 ( 50)% 241 (4%) 2781 (46%) Human response *
+Table 7: Results of Human Evaluation for relevance, informativeness and human-response possibility, showing
+preferences (%) for our model (DialoGPT) vis-a-vis its variants and real human responses. Distributions skew
+towards DialoGPT with MMI, even when compared with human outputs. Numbers in bold indicate the preferred
+systems. Statistically signiﬁcant results are indicated: * p ≤0.01, ** p≤0.001, *** p≤0.0001, **** p≤
+0.00001.
+reverse, disagreeing with otherwise ethical state-
+ments). These are known issues in current state-
+of-the-art end-to-end conversation models trained
+on large naturally-occurring datasets. A major
+motive for releasing D IALO GPT is to enable re-DIALO GPT : Large-Scale Generative Pre-training
+for Conversational Response Generation
+Yizhe Zhang Siqi Sun Michel Galley Yen-Chun Chen
+Chris Brockett Xiang Gao Jianfeng Gao Jingjing Liu Bill Dolan
+Microsoft Corporation, Redmond, WA, USA∗
+{yizzhang,siqi.sun,mgalley,yenchen,chrisbkt,xiag,jfgao,jingjl,billdol }@microsoft.com
+Abstract
+We present a large, tunable neural conversa-
+tional response generation model, D IALO GPT
+(dialogue generative pre-trained transformer).
+Trained on 147M conversation-like exchanges
+extracted from Reddit comment chains over
+a period spanning from 2005 through 2017,
+DialoGPT extends the Hugging Face PyTorch
+transformer to attain a performance close to
+human both in terms of automatic and human
+evaluation in single-turn dialogue settings. We","  According to the text, DialoGPT is a large, tunable neural conversational response generation model that was trained on 147 million conversation-like exchanges extracted from Reddit comment chains over a period spanning from 2005 through 2017. It extends the Hugging Face PyTorch transformer to attain a performance close to human in terms of automatic and human evaluation in single-turn dialogue settings.",49.04260516166687,"
+Feedback:
+The predicted answer accurately summarizes the main points of the text provided in the context. It correctly identifies DialoGPT as a large, tunable neural conversational response generation model that was trained on conversation-like exchanges extracted from Reddit comment chains over a period spanning from 2005 through 2017. The answer also explains how DialoGPT extends the Hugging Face PyTorch transformer to attain a performance close to human in terms of automatic and human evaluation in single-turn dialogue settings.
+
+Grade: 4.5/5.0",mistral-7b-instruct-v0.1.Q4_K_M.gguf
