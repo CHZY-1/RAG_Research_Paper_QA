@@ -7,12 +7,18 @@ if not load_dotenv():
 
 import os
 import glob
+import pandas as pd
+from datetime import datetime as dt
+from pathlib import Path as p
 from tqdm import tqdm
 from typing import List
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.docstore.document import Document
+# from langchain.docstore.document import Document
+from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+from langchain.chains.summarize import load_summarize_chain
+from rag_llm import load_llm
 from constants import CHROMA_SETTINGS
 import chromadb
 
@@ -59,14 +65,9 @@ def load_single_document(file_path: str) -> List[Document]:
     raise ValueError(f"Unsupported file extension '{ext}'")
 
 
-def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Document]: 
-    all_files = []
-    for ext in LOADER_MAPPING:
-        all_files.extend(
-            glob.glob(os.path.join(source_dir, f"**/*{ext.lower()}"), recursive=True)
-            )
+def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Document]:
         
-    filtered_files = [file_path for file_path in all_files if file_path not in ignored_files]
+    filtered_files = get_files_in_dir(source_dir, ignored_files)
 
     results = []
     with tqdm(total=len(filtered_files), desc='Loading new documents', ncols=80) as pbar:
@@ -77,6 +78,19 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
                 pbar.update()
 
     return results
+
+def get_files_in_dir(source_dir: str, ignored_files: List[str] = []):
+
+    all_files = []
+    for ext in LOADER_MAPPING:
+        all_files.extend(
+            glob.glob(os.path.join(source_dir, f"**/*{ext.lower()}"), recursive=True)
+            )
+        
+    filtered_files = [file_path for file_path in all_files if file_path not in ignored_files]
+
+    return filtered_files
+
 
 def get_text_splitter(chunk_size : int = 500, chunk_overlap : int =0, separators : list[str] = ["\n"], type : str = 'recursive'):
     
@@ -95,8 +109,21 @@ def get_text_splitter(chunk_size : int = 500, chunk_overlap : int =0, separators
     
     return text_splitter
 
+def process_single_document(file_path, chunk_size: int = 500, chunk_overlap: int = 20) -> List[Document]:
+    document = load_single_document(file_path)
 
-def process_documents(chunk_size: int = 500, chunk_overlap: int = 20, ignored_files: List[str] = []) -> List[Document]:
+    if not document:
+        print("No new document to load")
+        return None
+    
+    text_splitter = get_text_splitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    texts = text_splitter.split_documents(document)
+    print(f"Split into {len(texts)} chunks of text (max. {chunk_size} tokens each)")
+
+    return texts
+
+
+def process_documents(source_dir : str = source_directory, chunk_size: int = 500, chunk_overlap: int = 20, ignored_files: List[str] = []) -> List[Document]:
     """
     Load documents and split in chunks
     """
@@ -124,9 +151,106 @@ def vectorstore_exist(persist_directory: str, embeddings: HuggingFaceEmbeddings,
         return False
     return True
 
+def log_summaries(map_reduce_outputs, source, output_dir = "summaries"):
+    final_mp_data = []
+    for doc, out in zip(
+        map_reduce_outputs["input_documents"], map_reduce_outputs["intermediate_steps"]
+    ):
+        output = {}
+        output["file_name"] = p(doc.metadata["source"]).stem
+        output["file_type"] = p(doc.metadata["source"]).suffix
+        output["page_number"] = doc.metadata["page"]
+        output["chunks"] = doc.page_content
+        output["concise_summary"] = out
+        final_mp_data.append(output)
+
+    final_mp_data.append({
+        "file_name": "",
+        "file_type": "",
+        "page_number": "",
+        "chunks": "",
+        "concise_summary": map_reduce_outputs['output_text']
+    })
+
+    pdf_mp_summary = pd.DataFrame.from_dict(final_mp_data)
+    pdf_mp_summary = pdf_mp_summary.sort_values(
+        by=["file_name", "page_number"]
+    )  # sorting the dataframe by filename and page_number
+    pdf_mp_summary.reset_index(inplace=True, drop=True)
+
+    timestamp = dt.now().strftime(r"%Y%m%d%H%M%S")
+    output_file = p(output_dir) / f"{timestamp}_{p(source).stem}_summary.csv"
+    pdf_mp_summary.to_csv(output_file, index=False)
+
+
+def create_summary(file_path, chunk_size = 800, chunk_overlap= 50):
+
+    texts = process_single_document(file_path=file_path , chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
+    summarize_chain = load_summarize_chain(
+        llm = load_llm(),
+        chain_type='map_reduce',
+        return_intermediate_steps=True,
+        verbose=False
+    )
+    source = os.path.basename(file_path)
+
+    print(f"Creating summary for {source} ...")
+    summaries = summarize_chain(texts)
+    log_summaries(summaries, source)
+
+    return summaries['output_text'], source
+
+def ingest_summary(file_path):
+
+    text, source = create_summary(file_path)
+
+    new_doc =  [Document(page_content=text, metadata={"source": source, "summarize": "Yes"})]
+
+    embedding_model = get_embedding_model()
+
+    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS, path=persist_directory)
+
+    
+    if text is not None:
+
+        if vectorstore_exist(persist_directory, embedding_model, CHROMA_SETTINGS):
+
+            print(f"Appending to existing vectorstore at {persist_directory}")
+            db = Chroma(persist_directory=persist_directory, embedding_function=embedding_model, client_settings=CHROMA_SETTINGS, client=chroma_client)
+            db.add_documents(new_doc)
+
+        else:
+            print("Creating new vectorstore")
+            db = Chroma.from_documents(new_doc, embedding_model, persist_directory=persist_directory, client_settings=CHROMA_SETTINGS, client=chroma_client)
+
+    if text:
+        db.persist()
+        db = None
+
+        print(f"Ingestion complete for {source}.")
+    else:
+        print("Nothing to ingest.")
+
+
+def ingest_summaries_from_dir(source_dir : str):
+
+    all_files = get_files_in_dir(source_dir)
+
+    for file_path in all_files:
+        ingest_summary(file_path)
+
+    print(f"Ingestions for all files in {source_dir} have completed.")
+
+
+def get_embedding_model(embedding_model_name=embeddings_model_name):
+    embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
+    return embedding_model
+
+
 def ingestion():
-    # Create embeddings
-    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+
+    embeddings = get_embedding_model()
     # Chroma persistent client
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS, path=persist_directory)
 
@@ -139,7 +263,9 @@ def ingestion():
         texts = process_documents(
             chunk_size=800,
             chunk_overlap=50,
-            ignored_files=[metadata['source'] for metadata in collection['metadatas']]
+            # filter out all the files already existing in the vector db.
+            ignored_files=[metadata['source'] for metadata in collection['metadatas'] 
+                           if metadata and ('summarize' not in metadata or metadata['summarize'].lower() != 'yes')]
             )
         if texts is not None:
             print("Creating embeddings...")
@@ -164,5 +290,12 @@ def ingestion():
 
 
 if __name__ == "__main__":
-    ingestion()
+
+    # chunk all the files in a directory and store in vector db
+    # ingestion()
+
+    # summarize all the files in a directory and store in vector db
+    ingest_summaries_from_dir(source_dir=source_directory)
+
+    # create_summary("src_documents\DIALOGPT.pdf")
 

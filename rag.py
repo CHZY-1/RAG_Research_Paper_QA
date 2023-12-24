@@ -2,10 +2,9 @@ from dotenv import load_dotenv
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.vectorstores import Chroma
-from langchain.llms import CTransformers
+from documents_embedding import process_single_document
+from rag_llm import load_llm
 import chromadb
 import os
 import csv
@@ -19,65 +18,6 @@ from constants import CHROMA_SETTINGS
 
 EMBEDDINGS_MODEL_NAME = os.environ.get("EMBEDDINGS_MODEL_NAME")
 PERSISTS_DIRECTORY = os.environ.get('PERSIST_DIRECTORY')
-
-# def load_llm():
-
-#     callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-
-#     llm = CTransformers(model='../models/llama-2-7b-chat.ggmlv3.q3_K_L.bin',
-#                     model_type='llama',
-#                     callback_manager=callback_manager,
-#                     config={
-#                         'gpu_layers' : 20,
-#                         'stream':True,
-#                         'max_new_tokens': 512,
-#                         'temperature': 0.1,
-#                         'repetition_penalty': 1.18,
-#                         'context_length' : 2048})
-#     return llm
-
-models_path = '../models/'
-
-MODEL_KWARGS = {
-    'llama': {
-        # "model": "TheBloke/Llama-2-7b-Chat-GGUF",
-        # "model_file": "llama-2-7b-chat.Q5_K_M.gguf",
-        "model": models_path + 'llama-2-7b-chat.ggmlv3.q4_K_M.bin'
-    },
-    'mistral': {
-        "model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
-        "model_file": "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-    },
-}
-
-CONFIG = {'gpu_layers' : 20,
-          'stream':True,
-          'max_new_tokens': 512,
-          'temperature': 0.1,
-          'repetition_penalty': 1.18,
-          'context_length' : 2048}
-
-
-def get_callback_manager(type="stdout"):
-    if type == "stdout":
-        return CallbackManager([StreamingStdOutCallbackHandler()])
-    return
-
-
-def load_llm(model='llama', config=CONFIG):
-    callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-
-    if model in MODEL_KWARGS:
-        llm = CTransformers(**MODEL_KWARGS[model], 
-                            model_type=model, 
-                            config=config, 
-                            callback_manager=callback_manager, 
-                            verbose=True,
-                            streaming=True)
-        return llm
-    else:
-        raise ValueError(f"Model '{model}' not found in MODEL_KWARGS")
-    
 
 from langchain.callbacks.base import BaseCallbackHandler
 
@@ -155,7 +95,7 @@ def get_vector_store():
     vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
     return vector_db
 
-def get_rag_chain(model='llama', top_k = 3):
+def get_rag_chain(model='llama2_7b', top_k = 3):
     vector_db = get_vector_store()
 
     llm = load_llm(model)
@@ -175,7 +115,7 @@ def get_rag_chain(model='llama', top_k = 3):
     return qa_chain, llm
 
 import asyncio
-async def get_rag_chain_async(model='llama', top_k=3):
+async def get_rag_chain_async(model='llama2_7b', top_k=3):
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
     vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
@@ -199,7 +139,7 @@ async def get_rag_chain_async(model='llama', top_k=3):
     return qa_chain
 
 
-def rag_chain(query, model='llama', top_k=3):
+def rag_chain(query, model='llama2_7b', top_k=3):
 
     qa_chain, llm = get_rag_chain(model, top_k=top_k)
     
@@ -270,4 +210,4 @@ if __name__ == "__main__":
     # for query in transformer_question_list:
     #     rag_chain(query, top_k=3)
 
-    rag_chain("tell me llama2-chat 7b model?", top_k=3)
+    rag_chain("Summarize dialoGPT paper for me.", top_k=3)
