@@ -49,7 +49,6 @@ persist_directory = os.environ.get('PERSIST_DIRECTORY')
 source_directory = os.environ.get('SOURCE_DIRECTORY', 'src_documents')
 embeddings_model_name = os.environ.get('EMBEDDINGS_MODEL_NAME')
 
-
 def load_single_document(file_path: str) -> List[Document]:
     ext = "." + file_path.rsplit(".", 1)[-1].lower()
     if ext in LOADER_MAPPING:
@@ -66,6 +65,7 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
         all_files.extend(
             glob.glob(os.path.join(source_dir, f"**/*{ext.lower()}"), recursive=True)
             )
+        
     filtered_files = [file_path for file_path in all_files if file_path not in ignored_files]
 
     results = []
@@ -77,7 +77,6 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
                 pbar.update()
 
     return results
-
 
 def get_text_splitter(chunk_size : int = 500, chunk_overlap : int =0, separators : list[str] = ["\n"], type : str = 'recursive'):
     
@@ -103,12 +102,13 @@ def process_documents(chunk_size: int = 500, chunk_overlap: int = 20, ignored_fi
     """
     print(f"Loading documents from {source_directory}")
     documents = load_documents(source_directory, ignored_files)
+    #filter empty string in list
     documents = list(filter(None, documents))
     if not documents:
         print("No new documents to load")
         return None
     print(f"Loaded {len(documents)} new documents from {source_directory}")
-    print(documents)
+    # print(documents)
     text_splitter = get_text_splitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     texts = text_splitter.split_documents(documents)
     print(f"Split into {len(texts)} chunks of text (max. {chunk_size} tokens each)")
@@ -128,14 +128,14 @@ def ingestion():
     # Create embeddings
     embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
     # Chroma persistent client
-    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=persist_directory)
+    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS, path=persist_directory)
 
     if vectorstore_exist(persist_directory, embeddings, CHROMA_SETTINGS):
         # update vector db
         print(f"Appending to existing vectorstore at {persist_directory}")
         db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
         collection = db.get()
-        print(collection)
+        # print(collection)
         texts = process_documents(
             chunk_size=800,
             chunk_overlap=50,
@@ -161,4 +161,8 @@ def ingestion():
         print("Ingestion complete.")
     else:
         print("Nothing to ingest.")
+
+
+if __name__ == "__main__":
+    ingestion()
 

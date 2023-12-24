@@ -13,8 +13,6 @@ def _get_llm_chain():
 
 async def _get_response(contents: str, llm_chain):
     response = llm_chain({"query": contents})
-
-    print(response)
     chunks = []
 
     for chunk in response["source_documents"][::-1]:
@@ -57,7 +55,6 @@ async def callback(contents: str, user: str, instance: pn.chat.ChatInterface):
 
     except Exception as e:
         instance.send({"user": "System", "object": f"Error: {e}. Please try again."}, respond=False)
-
 
 
 chat_interface = pn.chat.ChatInterface(

@@ -42,7 +42,7 @@ MODEL_KWARGS = {
     'llama': {
         # "model": "TheBloke/Llama-2-7b-Chat-GGUF",
         # "model_file": "llama-2-7b-chat.Q5_K_M.gguf",
-        "model": models_path + 'llama-2-7b-chat.ggmlv3.q3_K_L.bin'
+        "model": models_path + 'llama-2-7b-chat.ggmlv3.q4_K_M.bin'
     },
     'mistral': {
         "model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
@@ -58,6 +58,12 @@ CONFIG = {'gpu_layers' : 20,
           'context_length' : 2048}
 
 
+def get_callback_manager(type="stdout"):
+    if type == "stdout":
+        return CallbackManager([StreamingStdOutCallbackHandler()])
+    return
+
+
 def load_llm(model='llama', config=CONFIG):
     callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
@@ -66,10 +72,25 @@ def load_llm(model='llama', config=CONFIG):
                             model_type=model, 
                             config=config, 
                             callback_manager=callback_manager, 
+                            verbose=True,
                             streaming=True)
         return llm
     else:
         raise ValueError(f"Model '{model}' not found in MODEL_KWARGS")
+    
+
+from langchain.callbacks.base import BaseCallbackHandler
+
+def get_stream_handler(chat_box):
+    class StreamHandler(BaseCallbackHandler):
+        def __init__(self, container, initial_text=""):
+            self.container = container
+            self.text=initial_text
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            self.text+=token
+            self.container.markdown(self.text) 
+
+    return StreamHandler(chat_box)
     
 
 def get_prompt_template(instruction, new_system_prompt):
@@ -114,15 +135,18 @@ def write_data_to_csv(data: dict, csv_file_name: str, fieldnames:list =None):
 
     file_exists = os.path.exists(csv_file_name)
 
-    with open(csv_file_name, 'a', newline='', encoding='utf-8') as csv_file:
-        if fieldnames is None:
-            fieldnames = list(data.keys())
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    if fieldnames is None:
+        fieldnames = list(data.keys())
+    try:
+        with open(csv_file_name, 'a', newline='', encoding='utf-8') as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
-        if not file_exists:
-            writer.writeheader()
-        
-        writer.writerow(data)
+            if not file_exists:
+                writer.writeheader()
+            
+            writer.writerow(data)
+    except Exception as e:
+        print(f"Error writing to CSV: {e}")
 
 
 def get_vector_store():
@@ -143,7 +167,6 @@ def get_rag_chain(model='llama', top_k = 3):
         chain_type='stuff',
         retriever=vector_db.as_retriever(search_kwargs={"k":top_k}),
         return_source_documents= True,
-        verbose=False,
         chain_type_kwargs={
         "verbose": False,
         "prompt": prompt
@@ -167,7 +190,6 @@ async def get_rag_chain_async(model='llama', top_k=3):
         chain_type='stuff',
         retriever=vector_db.as_retriever(search_kwargs={"k": top_k}),
         return_source_documents=True,
-        verbose=True,
         chain_type_kwargs={
             "verbose": False,
             "prompt": prompt
@@ -219,7 +241,7 @@ def rag_chain(query, model='llama', top_k=3):
 
 if __name__ == "__main__":
 
-    # query_list = [
+    # dialogpt_question_list = [
     #     "What data DialoGPT trained on?", 
     #     "What is the problems that DialoGPT paper trying to solve?", 
     #     "What is DialoGPT?",
@@ -232,7 +254,20 @@ if __name__ == "__main__":
     #     "Does the paper discuss any fine-tuning strategies or adaptation techniques for DialoGPT?"
     #     ]
 
-    # for query in query_list:
+    transformer_question_list = [
+        "What is the fundamental concept introduced in the 'Attention is All You Need' paper?",
+        "How does the transformer architecture in the paper handle sequential data, and what advantages does it offer over traditional sequence-to-sequence models?",
+        # "What specific problems or challenges does the 'Attention is All You Need' paper aim to address in the context of neural machine translation?",
+        # "Can you provide insights into the self-attention mechanism introduced in the paper and how it contributes to the model's ability to capture long-range dependencies in sequences?",
+        # "In the 'Attention is All You Need' paper, what are the key components of the transformer model architecture, and how do they work together to process input sequences?",
+        # "How is positional encoding incorporated into the transformer model, as described in the paper, to account for the sequential nature of input data?",
+        # "What are the quantitative evaluation metrics used in the paper to assess the performance of the transformer model, and how do they contribute to understanding the model's capabilities?",
+        # "Can you discuss the empirical results presented in the 'Attention is All You Need' paper, highlighting key findings related to the model's performance on different tasks or datasets?",
+        # "According to the paper, how does the transformer model compare with earlier models in terms of computational efficiency and parallelization capabilities?",
+        # "Does the 'Attention is All You Need' paper discuss any potential limitations or challenges associated with the transformer architecture, and what future directions are suggested for further improvement?"
+    ]
+
+    # for query in transformer_question_list:
     #     rag_chain(query, top_k=3)
 
-    rag_chain("What is DialoGPT?", top_k=3)
+    rag_chain("tell me llama2-chat 7b model?", top_k=3)
