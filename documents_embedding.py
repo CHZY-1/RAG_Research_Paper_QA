@@ -315,10 +315,10 @@ def ingestion():
 if __name__ == "__main__":
 
     # chunk all the files in a directory and store in vector db
-    # ingestion()
+    ingestion()
 
     # summarize all the files in a directory and store in vector db
-    ingest_summaries_from_dir(source_dir=source_directory)
+    # ingest_summaries_from_dir(source_dir=source_directory)
 
     # create_summary("src_documents\DIALOGPT.pdf")
 
