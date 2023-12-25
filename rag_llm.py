@@ -112,7 +112,7 @@ def load_llm(model : str = 'llama2_7b', model_dir : str = MODELS_DIR, config : d
         return llm
     else:
         supported_models = get_supported_models()
-        raise ValueError(f"Model '{model}' not found in MODEL_KWARGS, only these models {supported_models} are supported")
+        raise ValueError(f"Model '{model}' not found in MODEL_KWARGS, only these models {supported_models} are available.")
     
 if __name__ == "__main__":
     print(get_supported_models())

@@ -1,59 +1,12 @@
 # import torch
 # print(torch.cuda.is_available())
 
+import time
 import os
-from documents_embedding import load_documents
-from langchain.llms import CTransformers
-from documents_embedding import get_embedding_model, get_vector_store, write_data_to_csv
+from langchain.prompts.prompt import PromptTemplate
+from langchain.chains import LLMChain
+from documents_embedding import get_vector_store, write_data_to_csv
 from rag_llm import load_llm
-from constants import load_environment
-
-load_environment()
-persist_directory = os.environ.get('PERSIST_DIRECTORY')
-# source_directory = os.environ.get('SOURCE_DIRECTORY', 'src_documents')
-source_directory = 'evaluation'
-
-models_path = '../models/'
-
-config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':15, 'stream': True}
-
-llm = load_llm(model='lama2_7b', local= True, config=config)
-critic_llm = load_llm(model='mistral7b_instruct', local= True, config=config)
-
-documents = load_documents(source_dir=source_directory)
-
-embedding_model = get_embedding_model()
-
-query_list = [
-    "What is DialoGPT?",
-    "What data DialoGPT trained on?", 
-    "What is the problems that DialoGPT paper trying to solve?",
-    "How is the architecture of DialoGPT designed to handle conversational context?",
-    "Can you explain the key architectural components of DialoGPT mentioned in the paper?",
-    "What evaluation metrics were used in the paper to assess the performance of DialoGPT?",
-    "Can you discuss the results of the human evaluation mentioned in the paper?",
-    "How does DialoGPT compare with other conversation models in terms of performance, according to the paper?",
-    "What challenges or limitations does the paper acknowledge in the performance of DialoGPT?",
-    "Does the paper discuss any fine-tuning strategies or adaptation techniques for DialoGPT?"
-    ]
-
-vector_db = get_vector_store()
-
-# retriever = vector_db.as_retriever(search_kwargs={"k":3})
-
-# retrieved_contexts = [retriever.get_relevant_documents(question) for question in query_list]
-
-# questions_context = []
-
-# for question in query_list:
-#     # retreive documents list for every question
-#     relevant_documents = retriever.get_relevant_documents(question)
-#     page_content = ""
-#     # loop through document object
-#     for document in relevant_documents:
-#         page_content += document.page_content
-        
-#     questions_context.append({"question": question, "context": page_content})
 
 def retrieve_relevant_contexts(vector_db, query_list : list[str], k : int = 3):
     retriever = vector_db.as_retriever(search_kwargs={"k": k})
@@ -67,124 +20,138 @@ def retrieve_relevant_contexts(vector_db, query_list : list[str], k : int = 3):
 
     return questions_context
 
-questions_context = retrieve_relevant_contexts(vector_db, query_list)
+def get_prompt_template(instruction, new_system_prompt):
+    B_INST, E_INST = "[INST]", "[/INST]"
+    B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
 
-# from langchain.prompts.prompt import PromptTemplate
-# from langchain.chains import LLMChain
-# import time
+    SYSTEM_PROMPT = B_SYS + new_system_prompt + E_SYS
+    prompt_template =  B_INST + SYSTEM_PROMPT + instruction + E_INST
+    return prompt_template
 
-# def get_prompt_template(instruction, new_system_prompt):
-#     B_INST, E_INST = "[INST]", "[/INST]"
-#     B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
-#     DEFAULT_SYSTEM_PROMPT = """You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."""
-
-#     SYSTEM_PROMPT = B_SYS + new_system_prompt + E_SYS
-#     prompt_template =  B_INST + SYSTEM_PROMPT + instruction + E_INST
-#     return prompt_template
-
-# def get_qa_prompt():
-#     sys_prompt = """Answer using the context text provided. Your answers should only answer the question once and not have any text after the answer is done. You answers should avoid starting with 'according to the text' or 'based on the context' If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information. """
-#     instruction = """CONTEXT:/n/n {context}/n 
+def get_qa_chain(llm):
+    qa_sys_prompt = """Answer using the context text provided. Your answers should only answer the question once and not have any text after the answer is done. You answers should avoid starting with 'according to the text' or 'based on the context' If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information. """
+    instruction = """CONTEXT:/n/n {context}/n 
     
-#     Question: {question}""".strip(" ")
+    Question: {question}""".strip(" ")
 
-#     prompt_template = get_prompt_template(instruction, sys_prompt)
+    qa_prompt_template = get_prompt_template(instruction, qa_sys_prompt)
 
-#     prompt = PromptTemplate(
-#         template= prompt_template, 
-#         input_variables=["context", "question"]
-#         )
+    qa_prompt = PromptTemplate(
+        template=  qa_prompt_template, 
+        input_variables=["context", "question"]
+        )
+    
+    qa_chain = LLMChain(llm=llm, prompt=qa_prompt)
 
-#     return prompt
+    return qa_chain
 
+def get_eval_grade_chain(llm):
+    PROMPT_TEMPLATE_GRADE = """<s>[INST]You are an expert professor specialized in grading students' answers to questions. You are grading the following question.[/INST]</s>
 
-# # QA_PROMPT = "Answer the question based on the context\nContext:{context}\nQuestion:{question}\nAnswer:"
+Question:
+{question}
+Context:
+{context}
+[INST]You are grading the following predicted answer:[/INST]
+{answer}
+[INST]Provide your feedback and grade the predicted answer based on the given context. Use a grading scale from 1 to 5, where 1 is the lowest and 5 is the highest.[/INST]
+"""
 
-# template  = get_qa_prompt()
-# # template = PromptTemplate(input_variables=["context", "question"], template=QA_PROMPT)
-# qa_chain = LLMChain(llm=llm, prompt=template)
-# # predictions = qa_chain.apply(questions_context)
+    prompt_grade = PromptTemplate(input_variables=["question", "context", "answer"], template=PROMPT_TEMPLATE_GRADE)
+    eval_grade_chain = LLMChain(llm=llm, prompt=prompt_grade)
+    return eval_grade_chain
 
+def get_eval_metrics_chain(llm):
+    PROMPT_TEMPLATE_METRICS = """<s>[INST]You are an expert professor specialized in grading students' answers to questions. You are grading the following question.[/INST]</s>
 
-# PROMPT_TEMPLATE_GRADE = """<s>[INST]You are an expert professor specialized in grading students' answers to questions. You are grading the following question.[/INST]</s>
+Question:
+{question}
+Context:
+{context}
+[INST]You are grading the following predicted answer:[/INST]
+{answer}
 
-# Question:
-# {question}
-# Context:
-# {context}
-# [INST]You are grading the following predicted answer:[/INST]
-# {answer}
-# [INST]Provide your feedback and grade the predicted answer based on the given context. Use a grading scale from 1 to 5, where 1 is the lowest and 5 is the highest.[/INST]
-# """
+[INST]Rate the predicted answer based on the given context using the following metrics:
 
-# PROMPT_TEMPLATE_METRICS = """<s>[INST]You are an expert professor specialized in grading students' answers to questions. You are grading the following question.[/INST]</s>
+Coherence:
+How well does the answer maintain logical and consistent connections with the provided context? Rate from 1 to 5.
 
-# Question:
-# {question}
-# Context:
-# {context}
-# [INST]You are grading the following predicted answer:[/INST]
-# {answer}
+Conciseness:
+To what extent is the answer clear and to the point within the given context? Rate from 1 to 5.
 
-# [INST]Rate the predicted answer based on the given context using the following metrics:
+Accuracy:
+Evaluate the accuracy of the answer in relation to the provided context. Rate from 1 to 5.
+[/INST]
+"""
 
-# Coherence:
-# How well does the answer maintain logical and consistent connections with the provided context? Rate from 1 to 5.
+    prompt_metrics = PromptTemplate(input_variables=["question", "context", "answer"], template=PROMPT_TEMPLATE_METRICS)
+    eval_metrics_chain = LLMChain(llm=llm, prompt=prompt_metrics)
+    return eval_metrics_chain
 
-# Conciseness:
-# To what extent is the answer clear and to the point within the given context? Rate from 1 to 5.
+if __name__ == "__main__":
+    config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':20, 'stream': True}
 
-# Accuracy:
-# Evaluate the accuracy of the answer in relation to the provided context. Rate from 1 to 5.
-# [/INST]
+    critic_llm = load_llm(model='llama2_7b', local= True, config=config)
+    llm = load_llm(model='mistral7b_instruct', local= True, config=config)
 
-# """
- 
-# PROMPT = PromptTemplate(input_variables=["question", "context", "answer"], template=PROMPT_TEMPLATE_GRADE)
+    dialogpt_query_list = [
+        "What is DialoGPT?",
+        "What data DialoGPT trained on?", 
+        "What is the problems that DialoGPT paper trying to solve?",
+        "How is the architecture of DialoGPT designed to handle conversational context?",
+        "Can you explain the key architectural components of DialoGPT mentioned in the paper?",
+        "What evaluation metrics were used in the paper to assess the performance of DialoGPT?",
+        "Can you discuss the results of the human evaluation mentioned in the paper?",
+        "How does DialoGPT compare with other conversation models in terms of performance, according to the paper?",
+        "What challenges or limitations does the paper acknowledge in the performance of DialoGPT?",
+        "Does the paper discuss any fine-tuning strategies or adaptation techniques for DialoGPT?"
+        ]
 
-# eval_grade_chain_llm = LLMChain(llm=critic_llm, prompt=PROMPT)
+    transformer_query_list = [
+        "What is the fundamental concept introduced in the 'Attention is All You Need' paper?",
+        "How does the transformer architecture in the paper handle sequential data, and what advantages does it offer over traditional sequence-to-sequence models?",
+        "What specific problems or challenges does the 'Attention is All You Need' paper aim to address in the context of neural machine translation?",
+        "Can you provide insights into the self-attention mechanism introduced in the paper and how it contributes to the model's ability to capture long-range dependencies in sequences?",
+        "In the 'Attention is All You Need' paper, what are the key components of the transformer model architecture, and how do they work together to process input sequences?",
+        "How is positional encoding incorporated into the transformer model, as described in the paper, to account for the sequential nature of input data?",
+        "What are the quantitative evaluation metrics used in the paper to assess the performance of the transformer model, and how do they contribute to understanding the model's capabilities?",
+        "Can you discuss the empirical results presented in the 'Attention is All You Need' paper, highlighting key findings related to the model's performance on different tasks or datasets?",
+        "According to the paper, how does the transformer model compare with earlier models in terms of computational efficiency and parallelization capabilities?",
+        "Does the 'Attention is All You Need' paper discuss any potential limitations or challenges associated with the transformer architecture, and what future directions are suggested for further improvement?"
+        ]
 
-# PROMPT = PromptTemplate(input_variables=["question", "context", "answer"], template=PROMPT_TEMPLATE_METRICS)
+    vector_db = get_vector_store()
 
-# eval_metrics_chain_llm = LLMChain(llm=critic_llm, prompt=PROMPT)
+    questions_context = retrieve_relevant_contexts(vector_db, transformer_query_list)
 
-# from langchain.evaluation.qa import ContextQAEvalChain
-# from langchain.evaluation.criteria import CriteriaEvalChain, LabeledCriteriaEvalChain
-# # eval_chain = ContextQAEvalChain.from_llm(llm, verbose=True)
+    qa_chain = get_qa_chain(llm=llm)
+    eval_grade_chain = get_eval_grade_chain(llm=critic_llm)
+    eval_metrics_chain = get_eval_metrics_chain(llm=critic_llm)
 
-# # eval_chain =CriteriaEvalChain.from_llm(llm=critic_llm, criteria="coherence")
-# # graded_outputs = eval_chain.evaluate(questions_context, predictions, question_key="question", prediction_key="text")
+    for question_context in questions_context:
+        start_time = time.time()
 
-# # fieldnames = ["question", "answer", "response_time", "generation_llm", "critic_llm", "evaluation_from_llm"]
+        predictions = qa_chain(question_context)
 
-# for question_context in questions_context:
-#     start_time = time.time()
+        end_time = time.time()
 
-#     predictions = qa_chain(question_context)
-#     # print(predictions)
+        response_time = round(end_time - start_time, 2)
 
-#     end_time = time.time()
+        question_context["answer"] = predictions["text"]
 
-#     response_time = round(end_time - start_time, 2)
+        # print(predictions["text"])
 
-#     question_context["answer"] = predictions["text"]
+        evaluation_grade = eval_grade_chain(question_context)
+        evaluation_metrics = eval_metrics_chain(question_context)
 
-#     print(predictions["text"])
+        data = {
+            "question" : question_context["question"],
+            "answer" : predictions["text"],
+            "response_time" : response_time,
+            "generation_llm" : os.path.basename(llm.model),
+            "critic_llm" : os.path.basename(critic_llm.model),
+            "evaluation_from_llm_grade" : evaluation_grade['text'].strip(),
+            "evaluation_from_llm_metrics": evaluation_metrics['text'].strip()
+        }
 
-#     evaluation_grade = eval_grade_chain_llm(question_context)
-#     evaluation_metrics = eval_metrics_chain_llm(question_context)
-
-#     data = {
-#         "question" : question_context["question"],
-#         "answer" : predictions["text"],
-#         "response_time" : response_time,
-#         "generation_llm" : os.path.basename(llm.model),
-#         "critic_llm" : os.path.basename(critic_llm.model),
-#         "evaluation_from_llm_grade" : evaluation_grade['text'].strip(),
-#         "evaluation_from_llm_metrics": evaluation_metrics['text'].strip()
-#     }
-
-#     # print(evaluation['text'])
-
-#     # result = eval_chain.evaluate_strings(prediction=predictions["text"], input=question_context["question"])
-#     write_data_to_csv(data, csv_file_name="rag_llm_assessment.csv")
+        write_data_to_csv(data, csv_file_name="rag_llm_assessment.csv")
