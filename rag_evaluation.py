@@ -89,10 +89,12 @@ Evaluate the accuracy of the answer in relation to the provided context. Rate fr
     return eval_metrics_chain
 
 if __name__ == "__main__":
+
+    # With context
     config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':20, 'stream': True}
 
-    critic_llm = load_llm(model='llama2_7b', local= True, config=config)
-    llm = load_llm(model='mistral7b_instruct', local= True, config=config)
+    llm = load_llm(model='llama2_7b', local= True, config=config)
+    critic_llm = load_llm(model='mistral7b_instruct', local= True, config=config)
 
     dialogpt_query_list = [
         "What is DialoGPT?",
@@ -120,38 +122,119 @@ if __name__ == "__main__":
         "Does the 'Attention is All You Need' paper discuss any potential limitations or challenges associated with the transformer architecture, and what future directions are suggested for further improvement?"
         ]
 
-    vector_db = get_vector_store()
+    # vector_db = get_vector_store()
 
-    questions_context = retrieve_relevant_contexts(vector_db, transformer_query_list)
+    # questions_context = retrieve_relevant_contexts(vector_db, transformer_query_list)
 
-    qa_chain = get_qa_chain(llm=llm)
-    eval_grade_chain = get_eval_grade_chain(llm=critic_llm)
-    eval_metrics_chain = get_eval_metrics_chain(llm=critic_llm)
+    # qa_chain = get_qa_chain(llm=llm)
+    # eval_grade_chain = get_eval_grade_chain(llm=critic_llm)
+    # eval_metrics_chain = get_eval_metrics_chain(llm=critic_llm)
 
-    for question_context in questions_context:
-        start_time = time.time()
+    # for question_context in questions_context:
+    #     start_time = time.time()
 
-        predictions = qa_chain(question_context)
+    #     predictions = qa_chain(question_context)
 
-        end_time = time.time()
+    #     end_time = time.time()
 
-        response_time = round(end_time - start_time, 2)
+    #     response_time = round(end_time - start_time, 2)
 
-        question_context["answer"] = predictions["text"]
+    #     question_context["answer"] = predictions["text"]
 
-        # print(predictions["text"])
+    #     # print(predictions["text"])
 
-        evaluation_grade = eval_grade_chain(question_context)
-        evaluation_metrics = eval_metrics_chain(question_context)
+    #     evaluation_grade = eval_grade_chain(question_context)
+    #     evaluation_metrics = eval_metrics_chain(question_context)
 
-        data = {
-            "question" : question_context["question"],
-            "answer" : predictions["text"],
-            "response_time" : response_time,
-            "generation_llm" : os.path.basename(llm.model),
-            "critic_llm" : os.path.basename(critic_llm.model),
-            "evaluation_from_llm_grade" : evaluation_grade['text'].strip(),
-            "evaluation_from_llm_metrics": evaluation_metrics['text'].strip()
-        }
+    #     data = {
+    #         "question" : question_context["question"],
+    #         "answer" : predictions["text"],
+    #         "response_time" : response_time,
+    #         "generation_llm" : os.path.basename(llm.model),
+    #         "critic_llm" : os.path.basename(critic_llm.model),
+    #         "evaluation_from_llm_grade" : evaluation_grade['text'].strip(),
+    #         "evaluation_from_llm_metrics": evaluation_metrics['text'].strip()
+    #     }
 
-        write_data_to_csv(data, csv_file_name="rag_llm_assessment.csv")
+    #     write_data_to_csv(data, csv_file_name="rag_llm_assessment.csv")
+
+        # without context
+    
+
+    def get_llm_chain_no_context(llm):
+        PROMPT_TEMPLATE = """<s>[INST]Answer the following question.[/INST]</s>
+
+Question:
+{question}
+[/INST]
+"""
+        prompt = PromptTemplate(input_variables=["question"], template=PROMPT_TEMPLATE)
+        llm_chain = LLMChain(llm=llm, prompt=prompt)
+        return llm_chain
+    
+    def get_eval_metrics_chain_no_context(llm):
+        PROMPT_TEMPLATE_METRICS = """<s>[INST]You are an expert professor specialized in grading students' answers to questions. You are grading the following question.[/INST]</s>
+
+Question:
+{question}
+[INST]You are grading the following predicted answer:[/INST]
+{answer}
+
+[INST]Rate the predicted answer using the following metrics:
+
+Coherence:
+How well does the answer maintain logical and consistent connections? Rate from 1 to 5.
+
+Conciseness:
+To what extent is the answer clear and to the point? Rate from 1 to 5.
+
+Accuracy:
+Evaluate the accuracy of the answer. Rate from 1 to 5.
+[/INST]
+"""
+        prompt_metrics = PromptTemplate(input_variables=["question", "answer"], template=PROMPT_TEMPLATE_METRICS)
+        eval_metrics_chain = LLMChain(llm=llm, prompt=prompt_metrics)
+        return eval_metrics_chain
+
+
+
+    
+    def evaluate_model_no_context(questions_list, llm, critic_llm):
+
+        llm_chain_no_context = get_llm_chain_no_context(llm)
+        eval_grade_chain = get_eval_metrics_chain_no_context(llm=critic_llm)
+
+        for question in questions_list:
+            start_time = time.time()
+
+            predictions = llm_chain_no_context(question)
+
+            end_time = time.time()
+
+            response_time = round(end_time - start_time, 2)
+
+            eval_dict = {
+                "question" : question,
+                "answer" : predictions["text"]
+            }
+
+            evaluation_grade = eval_grade_chain(eval_dict)
+
+            data = {
+                "question" : question,
+                "answer" : predictions["text"],
+                "response_time" : response_time,
+                "generation_llm" : os.path.basename(llm.model),
+                "critic_llm" : os.path.basename(critic_llm.model),
+                "evaluation_from_llm_grade" : evaluation_grade['text'].strip(),
+            }
+
+            write_data_to_csv(data, csv_file_name="rag_llm_assessment_no_context.csv")
+
+    for questions_list in [dialogpt_query_list, transformer_query_list]:
+        evaluate_model_no_context(questions_list, llm=llm, critic_llm=critic_llm)
+
+
+
+    
+
