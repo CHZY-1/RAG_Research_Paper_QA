@@ -1,12 +1,6 @@
-from dotenv import load_dotenv
-
-if not load_dotenv():
-    print("Cannot load .env file. Environment file is not exists or not readable")
-    exit(1)
-
-
 import os
 import glob
+import csv
 import pandas as pd
 from datetime import datetime as dt
 from pathlib import Path as p
@@ -14,12 +8,11 @@ from tqdm import tqdm
 from typing import List
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
-# from langchain.docstore.document import Document
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
 from rag_llm import load_llm
-from constants import CHROMA_SETTINGS
+from constants import CHROMA_SETTINGS, load_environment
 import chromadb
 
 from langchain.document_loaders import (
@@ -35,7 +28,6 @@ from langchain.document_loaders import (
     PyPDFLoader
 )
 
-
 LOADER_MAPPING = {
     ".csv": (CSVLoader, {}),
     ".doc": (UnstructuredWordDocumentLoader, {}),
@@ -50,8 +42,8 @@ LOADER_MAPPING = {
     ".txt": (TextLoader, {"encoding": "utf8"})
 }
 
-# Load environment variables
-persist_directory = os.environ.get('PERSIST_DIRECTORY')
+load_environment()
+persist_directory = os.environ.get('PERSIST_DIRECTORY', 'db')
 source_directory = os.environ.get('SOURCE_DIRECTORY', 'src_documents')
 embeddings_model_name = os.environ.get('EMBEDDINGS_MODEL_NAME')
 
@@ -151,6 +143,24 @@ def vectorstore_exist(persist_directory: str, embeddings: HuggingFaceEmbeddings,
         return False
     return True
 
+def write_data_to_csv(data: dict, csv_file_name: str, fieldnames:list =None):
+
+    file_exists = os.path.exists(csv_file_name)
+
+    if fieldnames is None:
+        fieldnames = list(data.keys())
+    try:
+        with open(csv_file_name, 'a', newline='', encoding='utf-8') as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()
+            
+            writer.writerow(data)
+    except Exception as e:
+        print(f"Error writing to CSV: {e}")
+
+
 def log_summaries(map_reduce_outputs, source, output_dir = "summaries"):
     final_mp_data = []
     for doc, out in zip(
@@ -187,8 +197,16 @@ def create_summary(file_path, chunk_size = 800, chunk_overlap= 50):
 
     texts = process_single_document(file_path=file_path , chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
+    CONFIG = {'gpu_layers' : 20,
+          'stream':True,
+          'max_new_tokens': 4096,
+          'temperature': 0.1,
+          'repetition_penalty': 1.18,
+          'context_length' : 8192
+          }
+
     summarize_chain = load_summarize_chain(
-        llm = load_llm(),
+        llm = load_llm('mistral7b_instruct', local=True),
         chain_type='map_reduce',
         return_intermediate_steps=True,
         verbose=False
@@ -247,6 +265,11 @@ def get_embedding_model(embedding_model_name=embeddings_model_name):
     embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
     return embedding_model
 
+def get_vector_store(embedding_model_name=embeddings_model_name):
+    embeddings = get_embedding_model(embedding_model_name)
+    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=persist_directory)
+    vector_db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
+    return vector_db
 
 def ingestion():
 

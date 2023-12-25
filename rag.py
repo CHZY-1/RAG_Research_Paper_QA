@@ -1,21 +1,13 @@
-from dotenv import load_dotenv
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
-from documents_embedding import process_single_document
+from documents_embedding import get_vector_store, write_data_to_csv
 from rag_llm import load_llm
-import chromadb
 import os
-import csv
 import time
+from constants import load_environment
 
-if not load_dotenv():
-    print("Could not load .env file or it is empty. Please check if it exists and is readable.")
-    exit(1)
-
-from constants import CHROMA_SETTINGS
-
+load_environment()
 EMBEDDINGS_MODEL_NAME = os.environ.get("EMBEDDINGS_MODEL_NAME")
 PERSISTS_DIRECTORY = os.environ.get('PERSIST_DIRECTORY')
 
@@ -70,31 +62,6 @@ def extract_unique_file_sources(sources):
     else:
         return None
 
-
-def write_data_to_csv(data: dict, csv_file_name: str, fieldnames:list =None):
-
-    file_exists = os.path.exists(csv_file_name)
-
-    if fieldnames is None:
-        fieldnames = list(data.keys())
-    try:
-        with open(csv_file_name, 'a', newline='', encoding='utf-8') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-            if not file_exists:
-                writer.writeheader()
-            
-            writer.writerow(data)
-    except Exception as e:
-        print(f"Error writing to CSV: {e}")
-
-
-def get_vector_store():
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
-    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
-    vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
-    return vector_db
-
 def get_rag_chain(model='llama2_7b', top_k = 3):
     vector_db = get_vector_store()
 
@@ -116,9 +83,7 @@ def get_rag_chain(model='llama2_7b', top_k = 3):
 
 import asyncio
 async def get_rag_chain_async(model='llama2_7b', top_k=3):
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL_NAME)
-    chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=PERSISTS_DIRECTORY)
-    vector_db = Chroma(persist_directory=PERSISTS_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
+    vector_db = get_vector_store()
 
     llm = load_llm(model)
 
@@ -210,4 +175,4 @@ if __name__ == "__main__":
     # for query in transformer_question_list:
     #     rag_chain(query, top_k=3)
 
-    rag_chain("Summarize dialoGPT paper for me.", top_k=3)
+    rag_chain("What is K, Q, V and how their are used in attention mechanism", top_k=3)

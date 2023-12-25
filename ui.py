@@ -3,12 +3,11 @@ from rag import get_rag_chain_async
 
 pn.extension()
 
-# llm_chains = pn.state.cache["llm_chains"] = pn.state.cache.get("llm_chains", {})
-# responses = pn.state.cache["responses"] = pn.state.cache.get("responses", {})
+llm_chains = pn.state.cache["llm_chains"] = pn.state.cache.get("llm_chains", {})
+responses = pn.state.cache["responses"] = pn.state.cache.get("responses", {})
 
 def _get_llm_chain():
     llm_chain = get_rag_chain_async()
-
     return llm_chain
 
 async def _get_response(contents: str, llm_chain):
@@ -21,7 +20,6 @@ async def _get_response(contents: str, llm_chain):
         chunks.insert(0, (name, content))
     return response, chunks
 
-
 async def callback(contents: str, user: str, instance: pn.chat.ChatInterface):
     try:
         loading_spinner = pn.indicators.LoadingSpinner(value=True, size=70, name='Loading...')
@@ -30,7 +28,6 @@ async def callback(contents: str, user: str, instance: pn.chat.ChatInterface):
         llm_chain = await _get_llm_chain()
 
         message = None
-        # response = await _get_response(contents, llm_chain)
 
         response, documents = await _get_response(contents, llm_chain)
 
@@ -40,12 +37,6 @@ async def callback(contents: str, user: str, instance: pn.chat.ChatInterface):
 
         pages_layout = pn.Accordion(*documents, sizing_mode="stretch_width", max_width=1000)
         column.append(pages_layout)
-
-        # for chunk in response['result']:
-        #     panel = pn.panel(chunk, width_policy="max", sizing_mode="stretch_width")
-        #     column.append(panel)
-
-        # instance.send({"user": "Model", "object": column}, respond=False)
 
         yield {"user": "LangChain(Retriever)", "object": column}
 
@@ -67,6 +58,7 @@ chat_interface.send(
     user="System",
     respond=False,
 )
+
 chat_interface.servable()
 
 # panel serve ui.py
