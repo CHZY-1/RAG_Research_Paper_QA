@@ -232,7 +232,7 @@ Evaluate the accuracy of the answer. Rate from 1 to 5.
             write_data_to_csv(data, csv_file_name="rag_llm_assessment_no_context.csv")
 
     for questions_list in [dialogpt_query_list, transformer_query_list]:
-        evaluate_model_no_context(questions_list, llm=llm, critic_llm=critic_llm)
+        evaluate_model_no_context(questions_list, llm=critic_llm, critic_llm=llm)
 
 
 
