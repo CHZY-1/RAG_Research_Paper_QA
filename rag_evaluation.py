@@ -91,9 +91,9 @@ Evaluate the accuracy of the answer in relation to the provided context. Rate fr
 if __name__ == "__main__":
 
     # With context
-    config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':20, 'stream': True}
+    config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':15, 'stream': True}
 
-    llm = load_llm(model='llama2_7b', local= True, config=config)
+    llm = load_llm(model='llama2_13b', local= True, config=config)
     critic_llm = load_llm(model='mistral7b_instruct', local= True, config=config)
 
     dialogpt_query_list = [
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     vector_db = get_vector_store()
 
-    questions_context = retrieve_relevant_contexts(vector_db, dialogpt_query_list)
+    questions_context = retrieve_relevant_contexts(vector_db, transformer_query_list)
 
     qa_chain = get_qa_chain(llm=llm)
     eval_grade_chain = get_eval_grade_chain(llm=critic_llm)
