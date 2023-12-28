@@ -93,13 +93,13 @@ if __name__ == "__main__":
     # With context
     config = {'context_length': 4096, 'max_new_tokens': 2048, 'temperature':0.1 ,'repetition_penalty': 1.18, 'gpu_layers':20, 'stream': True}
 
-    llm = load_llm(model='llama2_7b_base', local= True, config=config)
+    llm = load_llm(model='llama2_7b', local= True, config=config)
     critic_llm = load_llm(model='mistral7b_instruct', local= True, config=config)
 
     dialogpt_query_list = [
         "What is DialoGPT?",
         "What data DialoGPT trained on?", 
-        "What is the problems that DialoGPT paper trying to solve?",
+        "What are the problems that DialoGPT paper is trying to solve?",
         "How is the architecture of DialoGPT designed to handle conversational context?",
         "Can you explain the key architectural components of DialoGPT mentioned in the paper?",
         "What evaluation metrics were used in the paper to assess the performance of DialoGPT?",
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     vector_db = get_vector_store()
 
-    questions_context = retrieve_relevant_contexts(vector_db, transformer_query_list)
+    questions_context = retrieve_relevant_contexts(vector_db, dialogpt_query_list)
 
     qa_chain = get_qa_chain(llm=llm)
     eval_grade_chain = get_eval_grade_chain(llm=critic_llm)
