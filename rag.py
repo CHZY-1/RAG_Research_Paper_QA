@@ -175,4 +175,8 @@ if __name__ == "__main__":
     # for query in transformer_question_list:
     #     rag_chain(query, top_k=3)
 
-    rag_chain("What is K, Q, V and how their are used in attention mechanism", top_k=3)
+    # rag_chain("What is K, Q, V and how their are used in attention mechanism", top_k=3)
+
+    query = "Does Ragas paper involve using LLM to evaluate another LLM?"
+    open_query = "Tell me highest mountain in the world?"
+    rag_chain(open_query, top_k=3)

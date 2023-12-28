@@ -42,6 +42,12 @@ MODEL_KWARGS = {
         "model_type": 'llama',
         "local": True
     },
+    'llama2_7b_base': {
+        "hf_model": "TheBloke/Llama-2-7B-GGUF",
+        "model_file": "llama-2-7b.Q4_K_M.gguf",
+        "model_type": 'llama',
+        "local": True
+    },
     'mistral7b_instruct': {
         "hf_model": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
         "model_file": "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
