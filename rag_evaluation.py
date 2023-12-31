@@ -29,7 +29,7 @@ def get_prompt_template(instruction, new_system_prompt):
     return prompt_template
 
 def get_qa_chain(llm):
-    qa_sys_prompt = """Answer using the context text provided. Your answers should only answer the question once and not have any text after the answer is done. You answers should avoid starting with 'according to the text' or 'based on the context' If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information. """
+    qa_sys_prompt = """Answer using the context text provided. Your answers should only answer the question once and not have any text after the answer is done. Your answers should avoid starting with 'according to the text' or 'based on the context' If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information. """
     instruction = """CONTEXT:/n/n {context}/n 
     
     Question: {question}""".strip(" ")
