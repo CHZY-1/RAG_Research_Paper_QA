@@ -137,7 +137,7 @@ def rag_chain(query, model='llama2_7b', top_k=3):
 
         # fieldnames = ['query', 'answer', 'sources', 'top-k', 'response_time(s)', 'response_length', 'llm', 'llm_type']
 
-        write_data_to_csv(data, csv_file_name="rag_research_paper.csv")
+        # write_data_to_csv(data, csv_file_name="rag_research_paper.csv")
 
         return answer 
     else:

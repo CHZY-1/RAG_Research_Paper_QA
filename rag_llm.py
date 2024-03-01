@@ -74,9 +74,9 @@ MODEL_KWARGS = {
     },
 }
 
-CONFIG = {'gpu_layers' : 25,
+CONFIG = {'gpu_layers' : 0,
           'stream':True,
-          'max_new_tokens': 2048,
+          'max_new_tokens': 512,
           'temperature': 0.1,
           'repetition_penalty': 1.18,
           'context_length' : 4096}

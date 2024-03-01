@@ -193,9 +193,6 @@ threadpoolctl==3.2.0
 tiktoken==0.5.2
 timm==0.9.12
 tokenizers==0.15.0
-torch==2.1.2+cu118
-torchaudio==2.1.2+cu118
-torchvision==0.16.2
 tornado==6.4
 tqdm==4.66.1
 traitlets==5.14.0
