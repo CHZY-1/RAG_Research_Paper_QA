@@ -1,6 +1,6 @@
 # RAG Research paper QA
 
-This project focuses on developing a RAG chatbot capable of answering questions related to specific research papers provided. The research papers, in PDF format, are chunked and embedded using the sentence transformer [all-MiniLM-L12-v2](https://sbert.net/docs/sentence_transformer/pretrained_models.html). These embeddings are stored in a chroma vector store. During inference, the top-K relevant documents to the user's question are retrieved, and a large language model (LLM) is prompted to generate an answer.
+This project focuses on developing a RAG chatbot capable of answering questions related to specific research papers provided using the LangChain library. The research papers, provided in PDF format are chunked and embedded using the [sentence transformer all-MiniLM-L12-v2](https://sbert.net/docs/sentence_transformer/pretrained_models.html) to store in a chroma vector store. During inference, the top-K relevant documents to the user's question are retrieved from the vector store, and a large language model (LLM) is prompted to generate an answer.
 
 ![RAG pipeline](image.png)
 
