@@ -1,4 +1,4 @@
-from langchain.llms import CTransformers
+from langchain_community.llms import CTransformers
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from constants import load_environment
